@@ -40,43 +40,6 @@ namespace ast::node {
         cout << " }";
       }
   };
-
-  class FuncType : public BaseAST {
-    public:
-      string type = "int";
-      void Dump() const override {
-        cout << "FuncType { " << type << " }";
-      }
-  };
-
-  class Block : public BaseAST {
-    public:
-      unique_ptr<BaseAST> stmt;
-      void Dump() const override {
-        cout << "Block { ";
-        stmt->Dump();
-        cout << " }";
-      }
-  };
-
-  class RetStmt : public BaseAST {
-    public:
-      string keyword = "return";
-      unique_ptr<BaseAST> num;
-      void Dump() const override {
-        cout << "RetStmt { ";
-        num->Dump();
-        cout << " }";
-      }
-  };
-
-  class Number : public BaseAST {
-    public:
-      Int number;
-      void Dump() const override {
-        cout << "Number {" << number << " }";
-      }
-  };
 }
 
 
