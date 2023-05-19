@@ -831,7 +831,7 @@ FuncRParams
   : Exp CommaExps {
     auto ast = new FuncRParamsAST();
     ast->exp = unique_ptr<BaseAST>($1);
-    ast->comma_exps = *unique_ptr<string>($2);
+    ast->comma_exps = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
   ;
@@ -840,7 +840,16 @@ CommaExps
   : ',' Exp CommaExps {
     auto ast = new CommaExpsAST();
     ast->exp = unique_ptr<BaseAST>($2);
-    ast->comma_exps = *unique_ptr<string>($3);
+    ast->comma_exps = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+  
+CommaExps
+  : Null Null {
+    auto ast = new CommaExpsAST();
+    ast->exp = unique_ptr<BaseAST>($1);
+    ast->comma_exps = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
   ;
