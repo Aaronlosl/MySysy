@@ -1,6 +1,7 @@
 #pragma once
 #include <functional>
 #include <iostream>
+#include <fstream>
 #include <list>
 #include <string>
 #include "koopa.h"
@@ -100,3 +101,23 @@ namespace ir {
 
     using IRList = list<IR>;
 }  // namespace syc::ir
+
+class OutputIr {
+    public:
+    ofstream& ofs;
+    string filename;
+
+    void writeLibFuncs() {
+        ofs.open(filename, ios::trunc);
+        ofs << "decl @getint(): i32\n";
+        ofs << "decl @getch(): i32\n";
+        ofs << "decl @getarray(*i32): i32\n";
+        ofs << "decl @putint(i32)\n";
+        ofs << "decl @putch(i32)\n";
+        ofs << "decl @putarray(i32, *i32)\n";
+        ofs << "decl @starttime()\n";
+        ofs << "decl @stoptime()\n\n";
+        ofs.close();
+    }
+    
+};

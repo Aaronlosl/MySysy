@@ -34,8 +34,10 @@ int main(int argc, const char *argv[]) {
   assert(!ret);
 
   // 输出解析得到的 AST, 其实就是个字符串
-  ast->Dump();
-  cout << endl;
+  ast->toIr();
+  
+  // ast->Dump();
+  // cout << endl;
 
 
   // // 解析字符串 str, 得到 Koopa IR 程序

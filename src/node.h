@@ -1,5 +1,8 @@
 #pragma once
+#include <cstdio>
 #include <iostream>
+#include <sstream>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -14,6 +17,18 @@ inline string INDENT() {
   }
   return ret;
 }
+static int IR_INDENTATION = 0;
+inline string IR_INDENT() {
+  string ret = "";
+  for (int i=0; i<IR_INDENTATION; i++) {
+    ret += "  ";
+  }
+  return ret;
+}
+
+static string AST_TARGET = "";
+static const char* AST_OUTPUT = "./debug/test.koopa";
+
 class BaseAST;
 BaseAST* current();
 
@@ -22,20 +37,36 @@ class BaseAST {
   public:
     virtual ~BaseAST() = default;
     virtual void Dump() const = 0;
+    virtual void toIr() const = 0;
 };
 
 
+class SAST : public BaseAST {
+  public:
+    unique_ptr<BaseAST> comp_unit;
+    void Dump() const override {
+      comp_unit->Dump();
+    }
+    void toIr() const override {
+      comp_unit->toIr();
+    }
+};
+
 class CompUnitAST : public BaseAST {
   public:
-    unique_ptr<BaseAST> func_def;
-    unique_ptr<BaseAST> func_defs;
+    unique_ptr<BaseAST> decl_or_func_def;
+    unique_ptr<BaseAST> decl_or_func_defs;
     void Dump() const override {
-      // cout << INDENT() << "CompUnitAST {\n";
-      // INDENTATION++;
-      func_def->Dump();
-      func_defs->Dump();
-      // INDENTATION--;
-      // cout << INDENT() << "}\n";
+      cout << INDENT() << "CompUnitAST {\n";
+      INDENTATION++;
+      decl_or_func_def->Dump();
+      decl_or_func_defs->Dump();
+      INDENTATION--;
+      cout << INDENT() << "}\n";
+    }
+    void toIr() const override {
+      decl_or_func_def->toIr();
+      decl_or_func_defs->toIr();
     }
 };
 
@@ -55,6 +86,33 @@ class FuncDefAST : public BaseAST {
       INDENTATION--;
       cout << INDENT() << "}\n";
     }
+    void toIr() const override {
+      ofstream ofs;
+      ofs.open(AST_OUTPUT, ios::out|ios::app);
+      ofs.write(data(IR_INDENT()), sizeof(char)*IR_INDENTATION);
+      ofs.write("func @", sizeof(char)*6);
+      ofs.write(data(ident), sizeof(char)*ident.length());
+      ofs.write("(): ", sizeof(char)*4);
+      ofs.flush();
+      ofs.close();
+
+      func_type->toIr();
+
+      ofs.open(AST_OUTPUT, ios::out|ios::app);
+      ofs.write(" {\n%entry:\n", sizeof(char)*11);
+      ofs.flush();
+      ofs.close();
+
+      IR_INDENTATION++;
+      block->toIr();
+      IR_INDENTATION--;
+
+      ofs.open(AST_OUTPUT, ios::out|ios::app);
+      ofs.write(data(IR_INDENT()), sizeof(char)*IR_INDENTATION);
+      ofs.write("}\n", sizeof(char)*2);
+      ofs.flush();
+      ofs.close();
+    }
 };
 
 class FuncTypeAST : public BaseAST {
@@ -62,6 +120,14 @@ class FuncTypeAST : public BaseAST {
     string type;
     void Dump() const override {
       cout << INDENT() << "FuncTypeAST: " << type << ",\n";
+    }
+    void toIr() const override {
+      ofstream ofs;
+      ofs.open(AST_OUTPUT, ios::out|ios::app);
+      if (type == "int")
+        ofs.write("i32", sizeof(char)*3);
+      ofs.flush();
+      ofs.close();
     }
 };
 
@@ -83,6 +149,20 @@ class StmtAST : public BaseAST {
       INDENTATION--;
       cout << INDENT() <<  "}\n";
     }
+    void toIr() const override {
+      if (keyword == "return") {
+        l_value_or_single->toIr();
+
+        ofstream ofs;
+        ofs.open(AST_OUTPUT, ios::out|ios::app);
+        ofs.write(data(IR_INDENT()), sizeof(char)*IR_INDENTATION);
+        ofs.write("ret ", sizeof(char)*4);
+        ofs.write(data(AST_TARGET), sizeof(char)*AST_TARGET.length());
+        ofs.write("\n", sizeof(char));
+        ofs.flush();
+        ofs.close();
+      }
+    }
 };
 
 class ExpAST : public BaseAST {
@@ -95,6 +175,9 @@ class ExpAST : public BaseAST {
       // INDENTATION--;
       // cout << INDENT() << "}\n";
     }  
+    void toIr() const override {
+      exp->toIr();
+    }
 };
 
 class PrimaryExpAST : public BaseAST {
@@ -107,6 +190,9 @@ class PrimaryExpAST : public BaseAST {
       // INDENTATION--;
       // cout << INDENT() << "}\n";
     }  
+    void toIr() const override {
+      value->toIr();
+    }
 };
 
 class UnaryExpAST : public BaseAST {
@@ -123,6 +209,9 @@ class UnaryExpAST : public BaseAST {
       INDENTATION--;
       cout << INDENT() << "}\n";
     }  
+    void toIr() const override {
+      exp_or_op_or_params_1->toIr();
+    }
 };
 
 class AddExpAST : public BaseAST {
@@ -138,6 +227,9 @@ class AddExpAST : public BaseAST {
       exp_3->Dump();
       INDENTATION--;
       cout << INDENT() << "}\n";
+    }   
+    void toIr() const override {
+
     }
 };
 
@@ -155,6 +247,8 @@ class MulExpAST : public BaseAST {
       INDENTATION--;
       cout << INDENT() << "}\n";
     }
+    void toIr() const override {
+    }
 };
 
 class LOrExpAST : public BaseAST {
@@ -170,6 +264,8 @@ class LOrExpAST : public BaseAST {
       exp_3->Dump();
       INDENTATION--;
       cout << INDENT() << "}\n";
+    }
+    void toIr() const override {
     }
 };
 
@@ -187,6 +283,8 @@ class RelExpAST : public BaseAST {
       INDENTATION--;
       cout << INDENT() << "}\n";
     }
+    void toIr() const override {
+    }
 };
 
 class EqExpAST : public BaseAST {
@@ -202,6 +300,8 @@ class EqExpAST : public BaseAST {
       exp_3->Dump();
       INDENTATION--;
       cout << INDENT() << "}\n";
+    }
+    void toIr() const override {
     }
 };
 
@@ -219,6 +319,8 @@ class LAndExpAST : public BaseAST {
       INDENTATION--;
       cout << INDENT() << "}\n";
     }
+    void toIr() const override {
+    }
 };
 
 class NumberAST : public BaseAST {
@@ -227,6 +329,14 @@ class NumberAST : public BaseAST {
     void Dump() const override {
       cout << INDENT() << "NumberAST: " << to_string(int_const) << "\n";
     }  
+    void toIr() const override {
+      ofstream ofs;
+      ofs.open(AST_OUTPUT, ios::out|ios::app);
+      ofs.write((const char*)&int_const, sizeof(Int));
+      ofs.flush();
+      ofs.close();
+      AST_TARGET = to_string(int_const);
+    }
 };
 
 class UnaryOpAST : public BaseAST {
@@ -235,6 +345,9 @@ class UnaryOpAST : public BaseAST {
     void Dump() const override {
       cout << INDENT() << "UnaryOpAST: " << op << "\n";
     }  
+    void toIr() const override {
+
+    }
 };
 
 class AddOpAST : public BaseAST {
@@ -243,6 +356,8 @@ class AddOpAST : public BaseAST {
     void Dump() const override {
       cout << INDENT() << "AddOpAST: " << op << "\n";
     }  
+    void toIr() const override {
+    }
 };
 
 class MulOpAST : public BaseAST {
@@ -250,7 +365,9 @@ class MulOpAST : public BaseAST {
     string op;
     void Dump() const override {
       cout << INDENT() << "MulOpAST: " << op << "\n";
-    }  
+    } 
+    void toIr() const override {
+    } 
 };
 
 class RelOpAST : public BaseAST {
@@ -259,6 +376,8 @@ class RelOpAST : public BaseAST {
     void Dump() const override {
       cout << INDENT() << "RelOpAST: " << op << "\n";
     }  
+    void toIr() const override {
+    }
 };
 
 class EqOpAST : public BaseAST {
@@ -266,7 +385,9 @@ class EqOpAST : public BaseAST {
     string op;
     void Dump() const override {
       cout << INDENT() << "EqOpAST: " << op << "\n";
-    }  
+    } 
+    void toIr() const override {
+    } 
 };
 
 class LAndOpAST : public BaseAST {
@@ -274,7 +395,9 @@ class LAndOpAST : public BaseAST {
     string op;
     void Dump() const override {
       cout << INDENT() << "LAndOpAST: " << op << "\n";
-    }  
+    } 
+    void toIr() const override {
+    } 
 };
 
 class LOrOpAST : public BaseAST {
@@ -283,11 +406,15 @@ class LOrOpAST : public BaseAST {
     void Dump() const override {
       cout << INDENT() << "LOrOpAST: " << op << "\n";
     }  
+    void toIr() const override {
+    }
 };
 
 class NullAST : public BaseAST {
   public:
     void Dump() const override {}
+    void toIr() const override {
+    }
 };
 
 // 4
@@ -301,6 +428,9 @@ class DeclAST : public BaseAST {
       const_decl_or_var_decl->Dump();
       INDENTATION--;
       cout << INDENT() << "}\n";
+    }
+    void toIr() const override {
+      const_decl_or_var_decl->toIr();
     }
 };
 
@@ -317,7 +447,9 @@ class ConstDeclAST : public BaseAST {
       const_def->Dump();
       comma_const_defs->Dump();
       INDENTATION--;
-      cout << INDENT() << "};\n";
+      cout << INDENT() << "}\n";
+    }
+    void toIr() const override {
     }
 };
 
@@ -329,6 +461,8 @@ class CommaConstDefsAST : public BaseAST {
       const_def->Dump();
       comma_const_defs->Dump();
     }
+    void toIr() const override {
+    }
 };
 
 class BTypeAST : public BaseAST {
@@ -337,30 +471,40 @@ class BTypeAST : public BaseAST {
     void Dump() const override {
       cout << INDENT() << "BTypeAST: " << type << "\n";
     }
+    void toIr() const override {
+    }
 };
 
 class ConstDefAST : public BaseAST {
   public:
     string ident;
+    unique_ptr<BaseAST> bracket_const_exps;
     unique_ptr<BaseAST> const_init_val;
     void Dump() const override {
       cout << INDENT() << "ConstDefAST { IDENT: " << ident << ",\n";
       INDENTATION++;
+      bracket_const_exps->Dump();
       const_init_val->Dump();
       INDENTATION--;
       cout << INDENT() << "}\n";
+    }
+    void toIr() const override {
     }
 };
 
 class ConstInitValAST : public BaseAST {
   public:
     unique_ptr<BaseAST> const_exp;
+    unique_ptr<BaseAST> comma_const_exps;
     void Dump() const override {
       cout << INDENT() << "ConstInitValAST {\n";
       INDENTATION++;
       const_exp->Dump();
+      comma_const_exps->Dump();
       INDENTATION--;
       cout << INDENT() << "}\n";
+    }
+    void toIr() const override {
     }
 };
 
@@ -374,6 +518,9 @@ class BlockAST : public BaseAST {
       // INDENTATION--;
       // cout << INDENT() << "}\n";
     }
+    void toIr() const override {
+      stmt_or_block_items->toIr();
+    }
 };
 
 class BlockItemsAST : public BaseAST {
@@ -383,6 +530,8 @@ class BlockItemsAST : public BaseAST {
     void Dump() const override {
       block_item->Dump();
       block_items->Dump();
+    }
+    void toIr() const override {
     }
 };
 
@@ -396,13 +545,19 @@ class BlockItemAST : public BaseAST {
       INDENTATION--;
       cout << INDENT() << "}\n";
     }
+    void toIr() const override {
+    }
 };
 
 class LValAST : public BaseAST {
   public:
     string ident;
+    unique_ptr<BaseAST> bracket_exps;
     void Dump() const override {
       cout << INDENT() << "LValAST: IDENT: " << ident << "\n";
+      bracket_exps->Dump();
+    }
+    void toIr() const override {
     }
 };
 
@@ -415,6 +570,8 @@ class ConstExpAST : public BaseAST {
       exp->Dump();
       // INDENTATION--;
       // cout << INDENT() << "}\n";
+    }
+    void toIr() const override {
     }
 };
 
@@ -430,7 +587,9 @@ class VarDeclAST : public BaseAST {
       var_def->Dump();
       comma_var_defs->Dump();
       INDENTATION--;
-      cout << INDENT() << "};\n";
+      cout << INDENT() << "}\n";
+    }
+    void toIr() const override {
     }
 };
 
@@ -442,30 +601,40 @@ class CommaVarDefsAST : public BaseAST {
       var_def->Dump();
       comma_var_defs->Dump();
     }
+    void toIr() const override {
+    }
 };
 
 class VarDefAST : public BaseAST {
   public:
     string ident;
+    unique_ptr<BaseAST> bracket_const_exps;
     unique_ptr<BaseAST> init_val;
     void Dump() const override {
       cout << INDENT() << "VarDefAST { IDENT: " << ident << ",\n";
       INDENTATION++;
+      bracket_const_exps->Dump();
       init_val->Dump();
       INDENTATION--;
       cout << INDENT() << "}\n";
+    }
+    void toIr() const override {
     }
 };
 
 class InitValAST : public BaseAST {
   public:
     unique_ptr<BaseAST> exp;
+    unique_ptr<BaseAST> comma_exps;
     void Dump() const override {
       cout << INDENT() << "InitValAST {\n";
       INDENTATION++;
       exp->Dump();
+      comma_exps->Dump();
       INDENTATION--;
       cout << INDENT() << "}\n";
+    }
+    void toIr() const override {
     }
 };
 
@@ -483,6 +652,8 @@ class FuncFParamsAST : public BaseAST {
       INDENTATION--;
       cout << INDENT() << "}\n";
     }
+    void toIr() const override {
+    }
 };
 
 class CommaFuncFParamsAST : public BaseAST {
@@ -492,6 +663,8 @@ class CommaFuncFParamsAST : public BaseAST {
     void Dump() const override {
       func_f_param->Dump();
       comma_func_f_params->Dump();
+    }
+    void toIr() const override {
     }
 };
 
@@ -507,6 +680,8 @@ class FuncFParamAST : public BaseAST {
       INDENTATION--;
       cout << INDENT() << "}\n";
     }
+    void toIr() const override {
+    }
 };
 
 class FuncRParamsAST : public BaseAST {
@@ -521,6 +696,8 @@ class FuncRParamsAST : public BaseAST {
       INDENTATION--;
       cout << INDENT() << "}\n";
     }
+    void toIr() const override {
+    }
 };
 
 class CommaExpsAST : public BaseAST {
@@ -531,16 +708,77 @@ class CommaExpsAST : public BaseAST {
       exp->Dump();
       comma_exps->Dump();
     }
-};
-
-class FuncDefsAST : public BaseAST {
-  public:
-    unique_ptr<BaseAST> func_def;
-    unique_ptr<BaseAST> func_defs;
-    void Dump() const override {
-      func_def->Dump();
-      func_defs->Dump();
+    void toIr() const override {
     }
 };
 
+class DeclOrFuncDefsAST : public BaseAST {
+  public:
+    unique_ptr<BaseAST> decl_or_func_def;
+    unique_ptr<BaseAST> decl_or_func_defs;
+    void Dump() const override {
+      cout << INDENT() << "DeclOrFuncDefsAST {\n";
+      INDENTATION++;
+      decl_or_func_def->Dump();
+      decl_or_func_defs->Dump();
+      INDENTATION--;
+      cout << INDENT() << "}\n";
+    }
+    void toIr() const override {
+      decl_or_func_def->toIr();
+      decl_or_func_defs->toIr();
+    }
+};
 
+class DeclOrFuncDefAST : public BaseAST {
+  public:
+    unique_ptr<BaseAST> decl_or_func_def;
+    void Dump() const override {
+      cout << INDENT() << "DeclOrFuncDefAST {\n";
+      INDENTATION++;
+      decl_or_func_def->Dump();
+      INDENTATION--;
+      cout << INDENT() << "}\n";
+    }
+    void toIr() const override {
+      decl_or_func_def->toIr();
+    }
+};
+// 8.3 still in progress
+class CommaConstExpsAST : public BaseAST {
+  public:
+    unique_ptr<BaseAST> const_exp;
+    unique_ptr<BaseAST> comma_const_exps;
+    void Dump() const override {
+      const_exp->Dump();
+      comma_const_exps->Dump();
+    }
+    void toIr() const override {
+      const_exp->toIr();
+      comma_const_exps->toIr();
+    }
+};
+
+class BracketConstExpsAST : public BaseAST {
+  public:
+    unique_ptr<BaseAST> const_exp;
+    unique_ptr<BaseAST> bracket_const_exps;
+    void Dump() const override {
+      const_exp->Dump();
+      bracket_const_exps->Dump();
+    }
+    void toIr() const override {
+    }
+};
+
+class BracketExpsAST : public BaseAST {
+  public:
+    unique_ptr<BaseAST> exp;
+    unique_ptr<BaseAST> bracket_exps;
+    void Dump() const override {
+      exp->Dump();
+      bracket_exps->Dump();
+    }
+    void toIr() const override {
+    }
+};

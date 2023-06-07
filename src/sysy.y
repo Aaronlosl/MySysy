@@ -46,8 +46,10 @@ using namespace std;
 LOrExp RelExp EqExp LAndExp UnaryOp AddOp MulOp RelOp EqOp LAndOp LOrOp Number Null 
 Decl ConstDecl BType ConstDef CommaConstDefs ConstInitVal BlockItems BlockItem LVal ConstExp
 VarDecl CommaVarDefs VarDef InitVal
-FuncFParams FuncFParam CommaFuncFParams FuncRParams CommaExps FuncDefs
-
+FuncFParams FuncFParam CommaFuncFParams FuncRParams CommaExps
+DeclOrFuncDefs CompUnit DeclOrFuncDef
+CommaConstExps
+BracketConstExps BracketExps
 %%
 
 // 开始符, CompUnit ::= FuncDef, 大括号后声明了解析完成后 parser 要做的事情
@@ -55,12 +57,19 @@ FuncFParams FuncFParam CommaFuncFParams FuncRParams CommaExps FuncDefs
 // 而 parser 一旦解析完 CompUnit, 就说明所有的 token 都被解析了, 即解析结束了
 // 此时我们应该把 FuncDef 返回的结果收集起来, 作为 AST 传给调用 parser 的函数
 // $1 指代规则里第一个符号的返回值, 也就是 FuncDef 的返回值
+S
+  : CompUnit {
+    auto s_ = make_unique<SAST>();
+    s_->comp_unit = unique_ptr<BaseAST>($1);
+    ast = move(s_);
+  }
+  ;
 CompUnit
-  : FuncDef FuncDefs {
-    auto comp_unit = make_unique<CompUnitAST>();
-    comp_unit->func_def = unique_ptr<BaseAST>($1);
-    comp_unit->func_defs = unique_ptr<BaseAST>($2);
-    ast = move(comp_unit);
+  : DeclOrFuncDef DeclOrFuncDefs {
+    auto ast = new CompUnitAST();
+    ast->decl_or_func_def = unique_ptr<BaseAST>($1);
+    ast->decl_or_func_defs = unique_ptr<BaseAST>($2);
+    $$ = ast;
   }
   ;
 
@@ -646,27 +655,48 @@ CommaVarDefs
   ;
 
 VarDef
-  : IDENT Null {
+  : IDENT BracketConstExps Null {
     auto ast = new VarDefAST();
     ast->ident = *unique_ptr<string>($1);
-    ast->init_val = unique_ptr<BaseAST>($2);
-    $$ = ast;  
-  }
-  ;
-
-VarDef
-  : IDENT '=' InitVal {
-    auto ast = new VarDefAST();
-    ast->ident = *unique_ptr<string>($1);
+    ast->bracket_const_exps = unique_ptr<BaseAST>($2);
     ast->init_val = unique_ptr<BaseAST>($3);
     $$ = ast;  
   }
   ;
 
+VarDef
+  : IDENT BracketConstExps '=' InitVal {
+    auto ast = new VarDefAST();
+    ast->ident = *unique_ptr<string>($1);
+    ast->bracket_const_exps = unique_ptr<BaseAST>($2);
+    ast->init_val = unique_ptr<BaseAST>($4);
+    $$ = ast;  
+  }
+  ;
+
 InitVal
-  : Exp {
+  : Exp Null {
     auto ast = new InitValAST();
     ast->exp = unique_ptr<BaseAST>($1);
+    ast->comma_exps = unique_ptr<BaseAST>($2);
+    $$ = ast;  
+  }
+  ;
+
+InitVal
+  : '{' Null Null '}' {
+    auto ast = new InitValAST();
+    ast->exp = unique_ptr<BaseAST>($2);
+    ast->comma_exps = unique_ptr<BaseAST>($3);
+    $$ = ast;  
+  }
+  ;
+
+InitVal
+  : '{' Exp CommaExps '}' {
+    auto ast = new InitValAST();
+    ast->exp = unique_ptr<BaseAST>($2);
+    ast->comma_exps = unique_ptr<BaseAST>($3);
     $$ = ast;  
   }
   ;
@@ -709,18 +739,38 @@ BType
   ;
 
 ConstDef
-  : IDENT '=' ConstInitVal {
+  : IDENT BracketConstExps '=' ConstInitVal {
     auto ast = new ConstDefAST();
     ast->ident = *unique_ptr<string>($1);
-    ast->const_init_val = unique_ptr<BaseAST>($3);
+    ast->bracket_const_exps = unique_ptr<BaseAST>($2);
+    ast->const_init_val = unique_ptr<BaseAST>($4);
     $$ = ast;
   }
   ;
 
 ConstInitVal
-  : ConstExp {
+  : ConstExp Null {
     auto ast = new ConstInitValAST();
     ast->const_exp = unique_ptr<BaseAST>($1);
+    ast->comma_const_exps = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  ;
+
+ConstInitVal
+  : '{' ConstExp CommaConstExps '}' {
+    auto ast = new ConstInitValAST();
+    ast->const_exp = unique_ptr<BaseAST>($2);
+    ast->comma_const_exps = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+ConstInitVal
+  : '{' Null Null '}' {
+    auto ast = new ConstInitValAST();
+    ast->const_exp = unique_ptr<BaseAST>($2);
+    ast->comma_const_exps = unique_ptr<BaseAST>($3);
     $$ = ast;
   }
   ;
@@ -768,9 +818,10 @@ BlockItem
   ;
 
 LVal
-  : IDENT {
+  : IDENT BracketExps {
     auto ast = new LValAST();
     ast->ident = *unique_ptr<string>($1);
+    ast->bracket_exps = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
   ;
@@ -854,23 +905,90 @@ CommaExps
   }
   ;
 
-FuncDefs
-  : FuncDef FuncDefs {
-    auto ast = new FuncDefsAST();
-    ast->func_def = unique_ptr<BaseAST>($1);
-    ast->func_defs = unique_ptr<BaseAST>($2);
+DeclOrFuncDefs
+  : DeclOrFuncDef DeclOrFuncDefs {
+    auto ast = new DeclOrFuncDefsAST();
+    ast->decl_or_func_def = unique_ptr<BaseAST>($1);
+    ast->decl_or_func_defs = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
   ;
 
-FuncDefs
+DeclOrFuncDefs
   : Null Null {
-    auto ast = new FuncDefsAST();
-    ast->func_def = unique_ptr<BaseAST>($1);
-    ast->func_defs = unique_ptr<BaseAST>($2);
+    auto ast = new DeclOrFuncDefsAST();
+    ast->decl_or_func_def = unique_ptr<BaseAST>($1);
+    ast->decl_or_func_defs = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
   ;
+ 
+DeclOrFuncDef
+  : Decl {
+    auto ast = new DeclOrFuncDefAST();
+    ast->decl_or_func_def = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+
+DeclOrFuncDef
+  : FuncDef {
+    auto ast = new DeclOrFuncDefAST();
+    ast->decl_or_func_def = unique_ptr<BaseAST>($1);
+    $$ = ast;
+  }
+  ;
+// 8.3 still in progress
+CommaConstExps
+  : ',' ConstExp CommaConstExps {
+    auto ast = new CommaConstExpsAST();
+    ast->const_exp = unique_ptr<BaseAST>($2);
+    ast->comma_const_exps = unique_ptr<BaseAST>($3);
+    $$ = ast;
+  }
+  ;
+
+CommaConstExps
+  : Null Null {
+    auto ast = new CommaConstExpsAST();
+    ast->const_exp = unique_ptr<BaseAST>($1);
+    ast->comma_const_exps = unique_ptr<BaseAST>($2);
+    $$ = ast;
+  }
+  ;
+
+BracketConstExps
+  : '[' ConstExp ']' BracketConstExps {
+    auto ast = new BracketConstExpsAST();
+    ast->const_exp = unique_ptr<BaseAST>($2);
+    ast->bracket_const_exps = unique_ptr<BaseAST>($4);
+  }
+  ;
+
+BracketConstExps
+  : Null Null {
+    auto ast = new BracketConstExpsAST();
+    ast->const_exp = unique_ptr<BaseAST>($1);
+    ast->bracket_const_exps = unique_ptr<BaseAST>($2);
+  }
+  ;
+
+BracketExps
+  : '[' Exp ']' BracketExps {
+    auto ast = new BracketExpsAST();
+    ast->exp = unique_ptr<BaseAST>($2);
+    ast->bracket_exps = unique_ptr<BaseAST>($4);
+  }
+  ;
+
+BracketExps
+  : Null Null {
+    auto ast = new BracketExpsAST();
+    ast->exp = unique_ptr<BaseAST>($1);
+    ast->bracket_exps = unique_ptr<BaseAST>($2);
+  }
+  ;
+
 %%
 
 // 定义错误处理函数, 其中第二个参数是错误信息
