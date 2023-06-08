@@ -26,8 +26,35 @@ inline string IR_INDENT() {
   return ret;
 }
 
-static string AST_TARGET = "";
 static const char* AST_OUTPUT = "./debug/test.koopa";
+static vector<string> AST_REG;
+static int AST_REG_COUNT = 0;
+
+static string AST_OP = "";
+static string AST_A1 = "";
+static string AST_A2 = "";
+static string AST_A3 = "";
+
+inline void writeIrSentence() {
+  ofstream ofs;
+  ofs.open(AST_OUTPUT, ios::out|ios::app);
+  ofs.write(data(IR_INDENT()), sizeof(char)*IR_INDENTATION);
+  if (AST_A1 != "") {
+    ofs.write(data(AST_A1), sizeof(char)*AST_A1.length());
+    ofs.write(" = ", sizeof(char));
+  }
+  ofs.write(data(AST_OP), sizeof(char)*AST_OP.length());
+  ofs.write(" ", sizeof(char));
+  if (AST_A2 != "") {
+    ofs.write(data(AST_A2), sizeof(char)*AST_A2.length());
+    ofs.write(", ", sizeof(char));
+  }
+  ofs.write(data(AST_A3), sizeof(char)*AST_A3.length());
+  ofs.write("\n", sizeof(char));
+  ofs.flush();
+  ofs.close();
+}
+
 
 class BaseAST;
 BaseAST* current();
@@ -38,6 +65,7 @@ class BaseAST {
     virtual ~BaseAST() = default;
     virtual void Dump() const = 0;
     virtual void toIr() const = 0;
+    virtual string toString() { return "BaseAST"; };
 };
 
 
@@ -49,6 +77,10 @@ class SAST : public BaseAST {
     }
     void toIr() const override {
       comp_unit->toIr();
+    }
+    string toString() override {
+      // comp_unit->toString();
+      return "SAST";
     }
 };
 
@@ -67,6 +99,9 @@ class CompUnitAST : public BaseAST {
     void toIr() const override {
       decl_or_func_def->toIr();
       decl_or_func_defs->toIr();
+    }
+    string toString() override {
+      return "CompUnitAST";
     }
 };
 
@@ -113,6 +148,9 @@ class FuncDefAST : public BaseAST {
       ofs.flush();
       ofs.close();
     }
+    string toString() override {
+      return "FuncDefAST";
+    }
 };
 
 class FuncTypeAST : public BaseAST {
@@ -129,6 +167,7 @@ class FuncTypeAST : public BaseAST {
       ofs.flush();
       ofs.close();
     }
+    string toString () override { return type; }
 };
 
 class StmtAST : public BaseAST {
@@ -152,32 +191,29 @@ class StmtAST : public BaseAST {
     void toIr() const override {
       if (keyword == "return") {
         l_value_or_single->toIr();
-
-        ofstream ofs;
-        ofs.open(AST_OUTPUT, ios::out|ios::app);
-        ofs.write(data(IR_INDENT()), sizeof(char)*IR_INDENTATION);
-        ofs.write("ret ", sizeof(char)*4);
-        ofs.write(data(AST_TARGET), sizeof(char)*AST_TARGET.length());
-        ofs.write("\n", sizeof(char));
-        ofs.flush();
-        ofs.close();
+        AST_OP = "ret";
+      } else {
+        l_value_or_single->toIr();// TODO
       }
+      writeIrSentence();
     }
+    string toString () override { return "StmtAST"; }
 };
 
 class ExpAST : public BaseAST {
   public:
     unique_ptr<BaseAST> exp;
     void Dump() const override {
-      // cout << INDENT() << "ExpAST {\n";
-      // INDENTATION++;
+      cout << INDENT() << "ExpAST {\n";
+      INDENTATION++;
       exp->Dump();
-      // INDENTATION--;
-      // cout << INDENT() << "}\n";
+      INDENTATION--;
+      cout << INDENT() << "}\n";
     }  
     void toIr() const override {
       exp->toIr();
     }
+    string toString() override { return "ExpAST"; }
 };
 
 class PrimaryExpAST : public BaseAST {
@@ -193,6 +229,7 @@ class PrimaryExpAST : public BaseAST {
     void toIr() const override {
       value->toIr();
     }
+    string toString() override { return "PrimaryExpAST"; }
 };
 
 class UnaryExpAST : public BaseAST {
@@ -210,8 +247,31 @@ class UnaryExpAST : public BaseAST {
       cout << INDENT() << "}\n";
     }  
     void toIr() const override {
-      exp_or_op_or_params_1->toIr();
+      exp_or_op_2->toIr();
+      if (exp_or_op_or_params_1->toString() == "!") {
+        AST_A1 = "%"+to_string(AST_REG_COUNT);
+        AST_OP = "eq";
+        AST_A2 = AST_A3;
+        AST_A3 = "0";
+        AST_REG_COUNT++;
+        writeIrSentence();
+        AST_A3 = AST_A1;
+        AST_A1 = "";
+        AST_OP = "";
+        AST_A2 = "";
+      } else if (exp_or_op_or_params_1->toString() == "-") {
+        AST_A1 = "%"+to_string(AST_REG_COUNT);
+        AST_OP = "sub";
+        AST_A2 = "0";
+        AST_REG_COUNT++;
+        writeIrSentence();
+        AST_A3 = AST_A1;
+        AST_A1 = "";
+        AST_OP = "";
+        AST_A2 = "";
+      } 
     }
+    string toString() override { return "UnaryExpAST"; }
 };
 
 class AddExpAST : public BaseAST {
@@ -229,8 +289,40 @@ class AddExpAST : public BaseAST {
       cout << INDENT() << "}\n";
     }   
     void toIr() const override {
-
+      exp_3->toIr();
+      if (op_2->toString() == "+") {
+        AST_A1 = "%"+to_string(AST_REG_COUNT);
+        AST_OP = "add";
+        if (AST_A2 == "") {
+          AST_A2 = exp_1->toString();
+        } 
+        if (AST_A3 == "") {
+          AST_A3 = exp_3->toString();
+        }
+        AST_REG_COUNT++;
+        writeIrSentence();
+        AST_A3 = AST_A1;
+        AST_A1 = "";
+        AST_OP = "";
+        AST_A2 = "";
+      } else if (op_2->toString() == "-") {
+        AST_A1 = "%"+to_string(AST_REG_COUNT);
+        AST_OP = "sub";
+        if (AST_A2 == "") {
+          AST_A2 = exp_1->toString();
+        } 
+        if (AST_A3 == "") {
+          AST_A3 = exp_3->toString();
+        }
+        AST_REG_COUNT++;
+        writeIrSentence();
+        AST_A3 = AST_A1;
+        AST_A1 = "";
+        AST_OP = "";
+        AST_A2 = "";
+      } else {}
     }
+    string toString() override { return "AddExpAST"; }
 };
 
 class MulExpAST : public BaseAST {
@@ -248,7 +340,55 @@ class MulExpAST : public BaseAST {
       cout << INDENT() << "}\n";
     }
     void toIr() const override {
+      exp_3->toIr();
+      if (op_2->toString() == "*") {
+        AST_A1 = "%"+to_string(AST_REG_COUNT);
+        AST_OP = "mul";
+        if (AST_A2 == "") {
+          AST_A2 = exp_1->toString();
+        } 
+        if (AST_A3 == "") {
+          AST_A3 = exp_3->toString();
+        }
+        AST_REG_COUNT++;
+        writeIrSentence();
+        AST_A3 = AST_A1;
+        AST_A1 = "";
+        AST_OP = "";
+        AST_A2 = "";
+      } else if (op_2->toString() == "/") {
+        AST_A1 = "%"+to_string(AST_REG_COUNT);
+        AST_OP = "div";
+        if (AST_A2 == "") {
+          AST_A2 = exp_1->toString();
+        } 
+        if (AST_A3 == "") {
+          AST_A3 = exp_3->toString();
+        }
+        AST_REG_COUNT++;
+        writeIrSentence();
+        AST_A3 = AST_A1;
+        AST_A1 = "";
+        AST_OP = "";
+        AST_A2 = "";
+      } else if (op_2->toString() == "%") {
+        AST_A1 = "%"+to_string(AST_REG_COUNT);
+        AST_OP = "mod";
+        if (AST_A2 == "") {
+          AST_A2 = exp_1->toString();
+        } 
+        if (AST_A3 == "") {
+          AST_A3 = exp_3->toString();
+        }
+        AST_REG_COUNT++;
+        writeIrSentence();
+        AST_A3 = AST_A1;
+        AST_A1 = "";
+        AST_OP = "";
+        AST_A2 = "";
+      } else {}
     }
+    string toString() override { return "MulExpAST"; }
 };
 
 class LOrExpAST : public BaseAST {
@@ -267,6 +407,7 @@ class LOrExpAST : public BaseAST {
     }
     void toIr() const override {
     }
+    string toString() override { return "LOrExpAST"; }
 };
 
 class RelExpAST : public BaseAST {
@@ -285,6 +426,7 @@ class RelExpAST : public BaseAST {
     }
     void toIr() const override {
     }
+    string toString() override { return "RelExpAST"; }
 };
 
 class EqExpAST : public BaseAST {
@@ -303,6 +445,7 @@ class EqExpAST : public BaseAST {
     }
     void toIr() const override {
     }
+    string toString() override { return "EqExpAST"; }
 };
 
 class LAndExpAST : public BaseAST {
@@ -321,6 +464,7 @@ class LAndExpAST : public BaseAST {
     }
     void toIr() const override {
     }
+    string toString() override { return "LAndExpAST"; }
 };
 
 class NumberAST : public BaseAST {
@@ -330,13 +474,9 @@ class NumberAST : public BaseAST {
       cout << INDENT() << "NumberAST: " << to_string(int_const) << "\n";
     }  
     void toIr() const override {
-      ofstream ofs;
-      ofs.open(AST_OUTPUT, ios::out|ios::app);
-      ofs.write((const char*)&int_const, sizeof(Int));
-      ofs.flush();
-      ofs.close();
-      AST_TARGET = to_string(int_const);
+      AST_A3 = to_string(int_const);
     }
+    string toString() override { return to_string(int_const); }
 };
 
 class UnaryOpAST : public BaseAST {
@@ -346,8 +486,8 @@ class UnaryOpAST : public BaseAST {
       cout << INDENT() << "UnaryOpAST: " << op << "\n";
     }  
     void toIr() const override {
-
     }
+    string toString() override { return op; }
 };
 
 class AddOpAST : public BaseAST {
@@ -358,6 +498,7 @@ class AddOpAST : public BaseAST {
     }  
     void toIr() const override {
     }
+    string toString() override { return op; }
 };
 
 class MulOpAST : public BaseAST {
@@ -368,6 +509,7 @@ class MulOpAST : public BaseAST {
     } 
     void toIr() const override {
     } 
+    string toString() override { return op; }
 };
 
 class RelOpAST : public BaseAST {
@@ -378,6 +520,7 @@ class RelOpAST : public BaseAST {
     }  
     void toIr() const override {
     }
+    string toString() override { return op; }
 };
 
 class EqOpAST : public BaseAST {
@@ -388,6 +531,7 @@ class EqOpAST : public BaseAST {
     } 
     void toIr() const override {
     } 
+    string toString() override { return op; }
 };
 
 class LAndOpAST : public BaseAST {
@@ -398,6 +542,7 @@ class LAndOpAST : public BaseAST {
     } 
     void toIr() const override {
     } 
+    string toString() override { return op; }
 };
 
 class LOrOpAST : public BaseAST {
@@ -408,6 +553,7 @@ class LOrOpAST : public BaseAST {
     }  
     void toIr() const override {
     }
+    string toString() override { return op; }
 };
 
 class NullAST : public BaseAST {
@@ -415,6 +561,7 @@ class NullAST : public BaseAST {
     void Dump() const override {}
     void toIr() const override {
     }
+    string toString() override { return ""; }
 };
 
 // 4

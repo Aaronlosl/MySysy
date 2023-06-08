@@ -15,6 +15,7 @@ using namespace std;
 // 看起来会很烦人, 于是干脆采用这种看起来 dirty 但实际很有效的手段
 extern FILE *yyin;
 extern int yyparse(unique_ptr<BaseAST> &ast);
+extern void yyerror(unique_ptr<BaseAST> &ast, string s);
 
 int main(int argc, const char *argv[]) {
   // 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:
@@ -31,13 +32,17 @@ int main(int argc, const char *argv[]) {
   // 调用 parser 函数, parser 函数会进一步调用 lexer 解析输入文件的
   unique_ptr<BaseAST> ast;
   auto ret = yyparse(ast);
+  if (!ret) {
+    yyerror(ast, ast->toString());
+  }
   assert(!ret);
 
   // 输出解析得到的 AST, 其实就是个字符串
+  ast->Dump();
+  cout << endl;
+
   ast->toIr();
   
-  // ast->Dump();
-  // cout << endl;
 
 
   // // 解析字符串 str, 得到 Koopa IR 程序
