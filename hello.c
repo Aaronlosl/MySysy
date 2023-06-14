@@ -1,3 +1,8 @@
+// int main() {
+//   const int x = 1;
+//   return x;
+// }
+
 int main() {
-  return 1+1;  // 看起来像个颜文字
+  return 1 && 2;
 }

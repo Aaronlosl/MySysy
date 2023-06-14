@@ -4,7 +4,9 @@
 #include <memory>
 #include <string>
 #include "koopa.h"
+// #include "env.h"
 #include "node.h"
+#include "ir.h"
 
 using namespace std;
 
@@ -21,7 +23,7 @@ int main(int argc, const char *argv[]) {
   // 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:
   // compiler 模式 输入文件 -o 输出文件
   assert(argc == 5);
-  auto mode = argv[1];
+  // auto mode = argv[1];
   auto input = argv[2];
   auto output = argv[4];
 
@@ -37,13 +39,17 @@ int main(int argc, const char *argv[]) {
   }
   assert(!ret);
 
+  ofstream ofs;
+  ofs.open(output, ios::out|ios::trunc);
+  ofs.close();
+
   // 输出解析得到的 AST, 其实就是个字符串
   ast->Dump();
   cout << endl;
 
-  ast->toIr();
-  
-
+  ast->toIr(output);
+  // ir::IR_DUMP* ir_dump = new ir::IR_DUMP(output);
+  // ir_dump->writeALL(IRList);
 
   // // 解析字符串 str, 得到 Koopa IR 程序
   // koopa_program_t program;
@@ -63,6 +69,44 @@ int main(int argc, const char *argv[]) {
   // // 注意, raw program 中所有的指针指向的内存均为 raw program builder 的内存
   // // 所以不要在 raw program 处理完毕之前释放 builder
   // koopa_delete_raw_program_builder(builder);
-
   return 0;
 }
+
+// #include <iostream>
+// #include <sstream>
+
+// #include "assembly/generate/generate.h"
+// #include "assembly/optimize/optimize.h"
+// #include "ast/generate/generate.h"
+// #include "config.h"
+// #include "ir/generate/generate.h"
+// #include "ir/optimize/optimize.h"
+
+// int main(int argc, char** argv) {
+//   using namespace syc;
+//   config::parse_arg(argc, argv);
+
+//   auto* root = syc::ast::generate(config::input);
+//   if (config::print_ast) root->print();
+
+//   auto ir = syc::ir::generate(root);
+//   if (config::optimize_level > 0) {
+//     syc::ir::optimize(ir);
+//   }
+//   if (config::print_ir)
+//     for (auto& i : ir) i.print(std::cerr, true);
+
+//   std::stringstream buffer;
+//   if (config::print_log) {
+//     syc::assembly::generate(ir, buffer, buffer);
+//   } else {
+//     syc::assembly::generate(ir, buffer);
+//   }
+//   if (config::optimize_level > 0) {
+//     syc::assembly::optimize(buffer, *config::output);
+//   } else {
+//     *config::output << buffer.str();
+//   }
+
+//   if (config::output != &std::cout) delete config::output;
+// };

@@ -3,7 +3,6 @@
 %option noinput
 
 %{
-
 #include <cstdlib>
 #include <string>
 

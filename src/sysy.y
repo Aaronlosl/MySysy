@@ -1,4 +1,5 @@
 %code requires {
+  #pragma once
   #include <memory>
   #include <iostream>
   #include <string>
@@ -6,7 +7,7 @@
 }
 
 %{
-
+#pragma once
 #include <iostream>
 #include <memory>
 #include <string>
@@ -64,7 +65,12 @@ S
   ;
 
 CompUnit
-  : DeclOrFuncDef DeclOrFuncDefs { auto ast = new CompUnitAST(); ast->decl_or_func_def = unique_ptr<BaseAST>($1); ast->decl_or_func_defs = unique_ptr<BaseAST>($2); $$ = ast; structure +="\nCompUnit: DeclOrFuncDef DeclOrFuncDefs"; }
+  : DeclOrFuncDef DeclOrFuncDefs { 
+    auto ast = new CompUnitAST(); 
+    ast->decl_or_func_def = unique_ptr<BaseAST>($1); 
+    ast->decl_or_func_defs = unique_ptr<BaseAST>($2); 
+    $$ = ast; structure +="\nCompUnit: DeclOrFuncDef DeclOrFuncDefs"; 
+  }
   ;
 
 // FuncDef ::= FuncType IDENT '(' ')' Block;
@@ -117,16 +123,6 @@ Block
   ;
 
 Stmt
-  // : RETURN Number Null Null ';' {
-  //   auto ast = new StmtAST();
-  //   ast->keyword = "return";
-  //   ast->optional_keyword = "";
-  //   ast->l_value_or_single = unique_ptr<BaseAST>($2);
-  //   ast->r_value_1 = unique_ptr<BaseAST>($3);
-  //   ast->r_value_2 = unique_ptr<BaseAST>($4);
-  //   $$ = ast;
-  //   structure +="\nStmt: RETURN Number Null Null ';'";
-  // }
   : RETURN Exp Null Null ';' {
     auto ast = new StmtAST();
     ast->keyword = "return";
@@ -137,122 +133,100 @@ Stmt
     $$ = ast;
     structure +="\nStmt: RETURN Exp Null Null ';'";
   }
-  | RETURN Null Null Null ';' {
-    auto ast = new StmtAST();
-    ast->keyword = "return";
-    ast->optional_keyword = "";
-    ast->l_value_or_single = unique_ptr<BaseAST>($2);
-    ast->r_value_1 = unique_ptr<BaseAST>($3);
-    ast->r_value_2 = unique_ptr<BaseAST>($4);
-    $$ = ast;
-    structure +="\nStmt: RETURN Null Null Null ';'";
-  }
-  | LVal '=' Exp Null ';' {
-    auto ast = new StmtAST();
-    ast->keyword = "";
-    ast->optional_keyword = "";
-    ast->l_value_or_single = unique_ptr<BaseAST>($1);
-    ast->r_value_1 = unique_ptr<BaseAST>($3);
-    ast->r_value_2 = unique_ptr<BaseAST>($4);
-    $$ = ast;
-    structure +="\nStmt: LVal '=' Exp Null ';'";
-  }
-  | Null Null Null ';' {
-    auto ast = new StmtAST();
-    ast->keyword = "";
-    ast->optional_keyword = "";
-    ast->l_value_or_single = unique_ptr<BaseAST>($1);
-    ast->r_value_1 = unique_ptr<BaseAST>($2);
-    ast->r_value_2 = unique_ptr<BaseAST>($3);
-    $$ = ast;
-    structure +="\nStmt: Null Null Null ';'";
-  }
-  | Exp Null Null ';' {
-    auto ast = new StmtAST();
-    ast->keyword = "";
-    ast->optional_keyword = "";
-    ast->l_value_or_single = unique_ptr<BaseAST>($1);
-    ast->r_value_1 = unique_ptr<BaseAST>($2);
-    ast->r_value_2 = unique_ptr<BaseAST>($3);
-    $$ = ast;
-    structure +="\nStmt: Exp Null Null ';'";
-  }
-  | Block Null Null {
-    auto ast = new StmtAST();
-    ast->keyword = "";
-    ast->optional_keyword = "";
-    ast->l_value_or_single = unique_ptr<BaseAST>($1);
-    ast->r_value_1 = unique_ptr<BaseAST>($2);
-    ast->r_value_2 = unique_ptr<BaseAST>($3);
-    $$ = ast;
-    structure +="\nStmt: Block Null Null";
-  }
-  | IF '(' Exp ')' Stmt Null {
-    auto ast = new StmtAST();
-    ast->keyword = "if";
-    ast->optional_keyword = "";
-    ast->l_value_or_single = unique_ptr<BaseAST>($3);
-    ast->r_value_1 = unique_ptr<BaseAST>($5);
-    ast->r_value_2 = unique_ptr<BaseAST>($6);
-    $$ = ast;
-    structure +="\nStmt: IF '(' Exp ')' Stmt Null";
-  }
-  | IF '(' Exp ')' Stmt ELSE Stmt {
-    auto ast = new StmtAST();
-    ast->keyword = "if";
-    ast->optional_keyword = "else";
-    ast->l_value_or_single = unique_ptr<BaseAST>($3);
-    ast->r_value_1 = unique_ptr<BaseAST>($5);
-    ast->r_value_2 = unique_ptr<BaseAST>($7);
-    $$ = ast;
-    structure +="\nStmt: IF '(' Exp ')' Stmt ELSE Stmt";
-  }
-  | WHILE '(' Exp ')' Stmt Null {
-    auto ast = new StmtAST();
-    ast->keyword = "while";
-    ast->optional_keyword = "";
-    ast->l_value_or_single = unique_ptr<BaseAST>($3);
-    ast->r_value_1 = unique_ptr<BaseAST>($5);
-    ast->r_value_2 = unique_ptr<BaseAST>($6);
-    $$ = ast;
-    structure +="\nStmt: WHILE '(' Exp ')' Stmt Null";
-  }
-  | BREAK Null Null Null ';' {
-    auto ast = new StmtAST();
-    ast->keyword = "break";
-    ast->optional_keyword = "";
-    ast->l_value_or_single = unique_ptr<BaseAST>($2);
-    ast->r_value_1 = unique_ptr<BaseAST>($3);
-    ast->r_value_2 = unique_ptr<BaseAST>($4);
-    $$ = ast;
-    structure +="\nStmt: BREAK Null Null Null ';'";
-  }
-  | CONTINUE Null Null Null ';' {
-    auto ast = new StmtAST();
-    ast->keyword = "continue";
-    ast->optional_keyword = "";
-    ast->l_value_or_single = unique_ptr<BaseAST>($2);
-    ast->r_value_1 = unique_ptr<BaseAST>($3);
-    ast->r_value_2 = unique_ptr<BaseAST>($4);
-    $$ = ast;
-    structure +="\nStmt: CONTINUE Null Null Null ';'";
-  }
+  // | LVal '=' Exp Null ';' {
+  //   auto ast = new StmtAST();
+  //   ast->keyword = "";
+  //   ast->optional_keyword = "";
+  //   ast->l_value_or_single = unique_ptr<BaseAST>($1);
+  //   ast->r_value_1 = unique_ptr<BaseAST>($3);
+  //   ast->r_value_2 = unique_ptr<BaseAST>($4);
+  //   $$ = ast;
+  //   structure +="\nStmt: LVal '=' Exp Null ';'";
+  // }
+  // | Null Null Null ';' {
+  //   auto ast = new StmtAST();
+  //   ast->keyword = "";
+  //   ast->optional_keyword = "";
+  //   ast->l_value_or_single = unique_ptr<BaseAST>($1);
+  //   ast->r_value_1 = unique_ptr<BaseAST>($2);
+  //   ast->r_value_2 = unique_ptr<BaseAST>($3);
+  //   $$ = ast;
+  //   structure +="\nStmt: Null Null Null ';'";
+  // }
+  // | Exp Null Null ';' {
+  //   auto ast = new StmtAST();
+  //   ast->keyword = "";
+  //   ast->optional_keyword = "";
+  //   ast->l_value_or_single = unique_ptr<BaseAST>($1);
+  //   ast->r_value_1 = unique_ptr<BaseAST>($2);
+  //   ast->r_value_2 = unique_ptr<BaseAST>($3);
+  //   $$ = ast;
+  //   structure +="\nStmt: Exp Null Null ';'";
+  // }
+  // | Block Null Null {
+  //   auto ast = new StmtAST();
+  //   ast->keyword = "";
+  //   ast->optional_keyword = "";
+  //   ast->l_value_or_single = unique_ptr<BaseAST>($1);
+  //   ast->r_value_1 = unique_ptr<BaseAST>($2);
+  //   ast->r_value_2 = unique_ptr<BaseAST>($3);
+  //   $$ = ast;
+  //   structure +="\nStmt: Block Null Null";
+  // }
+  // | IF '(' Exp ')' Stmt Null {
+  //   auto ast = new StmtAST();
+  //   ast->keyword = "if";
+  //   ast->optional_keyword = "";
+  //   ast->l_value_or_single = unique_ptr<BaseAST>($3);
+  //   ast->r_value_1 = unique_ptr<BaseAST>($5);
+  //   ast->r_value_2 = unique_ptr<BaseAST>($6);
+  //   $$ = ast;
+  //   structure +="\nStmt: IF '(' Exp ')' Stmt Null";
+  // }
+  // | IF '(' Exp ')' Stmt ELSE Stmt {
+  //   auto ast = new StmtAST();
+  //   ast->keyword = "if";
+  //   ast->optional_keyword = "else";
+  //   ast->l_value_or_single = unique_ptr<BaseAST>($3);
+  //   ast->r_value_1 = unique_ptr<BaseAST>($5);
+  //   ast->r_value_2 = unique_ptr<BaseAST>($7);
+  //   $$ = ast;
+  //   structure +="\nStmt: IF '(' Exp ')' Stmt ELSE Stmt";
+  // }
+  // | WHILE '(' Exp ')' Stmt Null {
+  //   auto ast = new StmtAST();
+  //   ast->keyword = "while";
+  //   ast->optional_keyword = "";
+  //   ast->l_value_or_single = unique_ptr<BaseAST>($3);
+  //   ast->r_value_1 = unique_ptr<BaseAST>($5);
+  //   ast->r_value_2 = unique_ptr<BaseAST>($6);
+  //   $$ = ast;
+  //   structure +="\nStmt: WHILE '(' Exp ')' Stmt Null";
+  // }
+  // | BREAK Null Null Null ';' {
+  //   auto ast = new StmtAST();
+  //   ast->keyword = "break";
+  //   ast->optional_keyword = "";
+  //   ast->l_value_or_single = unique_ptr<BaseAST>($2);
+  //   ast->r_value_1 = unique_ptr<BaseAST>($3);
+  //   ast->r_value_2 = unique_ptr<BaseAST>($4);
+  //   $$ = ast;
+  //   structure +="\nStmt: BREAK Null Null Null ';'";
+  // }
+  // | CONTINUE Null Null Null ';' {
+  //   auto ast = new StmtAST();
+  //   ast->keyword = "continue";
+  //   ast->optional_keyword = "";
+  //   ast->l_value_or_single = unique_ptr<BaseAST>($2);
+  //   ast->r_value_1 = unique_ptr<BaseAST>($3);
+  //   ast->r_value_2 = unique_ptr<BaseAST>($4);
+  //   $$ = ast;
+  //   structure +="\nStmt: CONTINUE Null Null Null ';'";
+  // }
   ;
 
 Exp
-  // : UnaryExp {
-  //   auto ast = new ExpAST();
-  //   ast->exp = unique_ptr<BaseAST>($1);
-  //   $$ = ast;
-  //   structure +="\nExp: UnaryExp";
-  // }
-  : AddExp {
-    auto ast = new ExpAST();
-    ast->exp = unique_ptr<BaseAST>($1);
-    $$ = ast;
-    structure +="\nExp: AddExp";
-  }
-  | LOrExp {
+  : LOrExp {
     auto ast = new ExpAST();
     ast->exp = unique_ptr<BaseAST>($1);
     $$ = ast;
@@ -266,6 +240,12 @@ PrimaryExp
     ast->value = unique_ptr<BaseAST>($2);
     $$ = ast;
     structure +="\nPrimaryExp: '(' Exp ')'";
+  }
+  | LVal {
+    auto ast = new PrimaryExpAST();
+    ast->value = unique_ptr<BaseAST>($1);
+    $$ = ast;
+    structure +="\nPrimaryExp: LVal";
   }
   | Number {
     auto ast = new PrimaryExpAST();
@@ -292,22 +272,22 @@ UnaryExp
     $$ = ast;
     structure +="\nUnaryExp: UnaryOp UnaryExp";
   }
-  | IDENT '(' Null ')' Null {
-    auto ast = new UnaryExpAST();
-    ast->ident = *unique_ptr<string>($1);
-    ast->exp_or_op_or_params_1 = unique_ptr<BaseAST>($3);
-    ast->exp_or_op_2 = unique_ptr<BaseAST>($5);
-    $$ = ast;
-    structure +="\nUnaryExp: IDENT '(' Null ')' Null";
-  }
-  | IDENT '(' FuncRParams ')' Null {
-    auto ast = new UnaryExpAST();
-    ast->ident = *unique_ptr<string>($1);
-    ast->exp_or_op_or_params_1 = unique_ptr<BaseAST>($3);
-    ast->exp_or_op_2 = unique_ptr<BaseAST>($5);
-    $$ = ast;
-    structure +="\nUnaryExp: IDENT '(' FuncRParams ')' Null";
-  }
+  // | IDENT '(' Null ')' Null {
+  //   auto ast = new UnaryExpAST();
+  //   ast->ident = *unique_ptr<string>($1);
+  //   ast->exp_or_op_or_params_1 = unique_ptr<BaseAST>($3);
+  //   ast->exp_or_op_2 = unique_ptr<BaseAST>($5);
+  //   $$ = ast;
+  //   structure +="\nUnaryExp: IDENT '(' Null ')' Null";
+  // }
+  // | IDENT '(' FuncRParams ')' Null {
+  //   auto ast = new UnaryExpAST();
+  //   ast->ident = *unique_ptr<string>($1);
+  //   ast->exp_or_op_or_params_1 = unique_ptr<BaseAST>($3);
+  //   ast->exp_or_op_2 = unique_ptr<BaseAST>($5);
+  //   $$ = ast;
+  //   structure +="\nUnaryExp: IDENT '(' FuncRParams ')' Null";
+  // }
   ;
 
 AddExp
@@ -349,13 +329,13 @@ MulExp
   ;
 
 RelExp
-  : AddExp Null Null {
+  : Null Null AddExp {
     auto ast = new RelExpAST();
     ast->exp_1 = unique_ptr<BaseAST>($1);
     ast->op_2 = unique_ptr<BaseAST>($2);
     ast->exp_3 = unique_ptr<BaseAST>($3);
     $$ = ast;
-    structure +="\nRelExp: AddExp Null Null";
+    structure +="\nRelExp: Null Null AddExp";
   }
   | RelExp RelOp AddExp {
     auto ast = new RelExpAST();
@@ -368,13 +348,13 @@ RelExp
   ;
 
 EqExp
-  : RelExp Null Null {
+  : Null Null RelExp {
     auto ast = new EqExpAST();
     ast->exp_1 = unique_ptr<BaseAST>($1);
     ast->op_2 = unique_ptr<BaseAST>($2);
     ast->exp_3 = unique_ptr<BaseAST>($3);
     $$ = ast;
-    structure +="\nEqExp: RelExp Null Null";
+    structure +="\nEqExp: Null Null RelExp";
   }
   | EqExp EqOp RelExp {
     auto ast = new EqExpAST();
@@ -387,13 +367,13 @@ EqExp
   ;
 
 LAndExp
-  : EqExp Null Null {
+  : Null Null EqExp {
     auto ast = new LAndExpAST();
     ast->exp_1 = unique_ptr<BaseAST>($1);
     ast->op_2 = unique_ptr<BaseAST>($2);
     ast->exp_3 = unique_ptr<BaseAST>($3);
     $$ = ast;
-    structure +="\nLAndExp: EqExp Null Null";
+    structure +="\nLAndExp: Null Null EqExp";
   }
   | LAndExp LAndOp EqExp {
     auto ast = new LAndExpAST();
@@ -554,7 +534,6 @@ Null
   : {
     auto ast = new NullAST();
     $$ = ast;
-    structure +="\nNull";
   }
   ;
 // 4.2
@@ -565,12 +544,12 @@ Decl
     $$ = ast;
     structure +="\nDecl: ConstDecl";
   }
-  | VarDecl {
-    auto ast = new DeclAST();
-    ast->const_decl_or_var_decl = unique_ptr<BaseAST>($1);
-    $$ = ast;
-    structure +="\nDecl: VarDecl";
-  }
+  // | VarDecl {
+  //   auto ast = new DeclAST();
+  //   ast->const_decl_or_var_decl = unique_ptr<BaseAST>($1);
+  //   $$ = ast;
+  //   structure +="\nDecl: VarDecl";
+  // }
   ;
 
 VarDecl
@@ -647,6 +626,7 @@ ConstDecl
     ast->const_def = unique_ptr<BaseAST>($3);
     ast->comma_const_defs = unique_ptr<BaseAST>($4);
     $$ = ast;
+    structure +="\nConstDecl: CONST BType ConstDef CommaConstDefs ';'";
   }
   ;
 
@@ -656,6 +636,7 @@ CommaConstDefs
     ast->const_def = unique_ptr<BaseAST>($2);
     ast->comma_const_defs = unique_ptr<BaseAST>($3);
     $$ = ast;
+    structure +="\nCommaConstDefs: ',' ConstDef CommaConstDefs";
   }
   | Null Null {
     auto ast = new CommaConstDefsAST();
@@ -705,7 +686,7 @@ ConstInitVal
   ;
 
 Block
-  : '{' BlockItems '}' {
+  : '{' BlockItems {
     auto ast = new BlockAST();
     ast->stmt_or_block_items = unique_ptr<BaseAST>($2);
     $$ = ast;
@@ -719,7 +700,7 @@ BlockItems
     ast->block_items = unique_ptr<BaseAST>($2);
     $$ = ast;
   }
-  | Null Null {
+  | Null Null '}' {
     auto ast = new BlockItemsAST();
     ast->block_item = unique_ptr<BaseAST>($1);
     ast->block_items = unique_ptr<BaseAST>($2);
@@ -741,19 +722,12 @@ BlockItem
   ;
 
 LVal
-  : IDENT BracketExps {
+  : IDENT {
     auto ast = new LValAST();
     ast->ident = *unique_ptr<string>($1);
-    ast->bracket_exps = unique_ptr<BaseAST>($2);
+    // ast->bracket_exps = unique_ptr<BaseAST>($2);
     $$ = ast;
-  }
-  ;
-
-PrimaryExp
-  : LVal{
-    auto ast = new PrimaryExpAST();
-    ast->value = unique_ptr<BaseAST>($1);
-    $$ = ast;
+    structure +="\nLVal: IDENT Null";
   }
   ;
   
@@ -762,6 +736,7 @@ ConstExp
     auto ast = new ConstExpAST();
     ast->exp = unique_ptr<BaseAST>($1);
     $$ = ast;
+    structure +="\nConstExp: Exp";
   }
   ;
 // 8

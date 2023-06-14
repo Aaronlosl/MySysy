@@ -1,10 +1,6 @@
-func @main(): i32 {
-%entry:
- %0 add AddExpAST,MulExpAST
- ret %0
-}
-func @main(): i32 {
-%entry:
- %0 add AddExpAST,1
- ret %0
+fun @main(): i32 {
+%_b_0:
+%0 = or 2, 3
+%1 = and 1, %0
+ret %1
 }
