@@ -5,7 +5,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
-#include <unordered_set>
+#include <map>
 #include "ir.h"
 // #include "env.h"
 
@@ -39,11 +39,16 @@ inline string block2str() {
 struct IrRet {
   enum tag{
     Var,
+    Func,
     Imm,
     None
   } type;
   int value;
   IrRet(tag t, int v): type(t), value(v) {}
+  IrRet(const IrRet &xx) {
+    type = xx.type;
+    value = xx.value;
+  }
 };
 inline string reg2str(IrRet ret) {
   if (ret.type == IrRet::tag::Var){
@@ -62,10 +67,15 @@ BaseAST* current();
 // 所有 AST 的基类
 class BaseAST {
   public:
+    int value = 0;
     virtual ~BaseAST() = default;
     virtual void Dump() const = 0;
     virtual IrRet toIr(string filename) const = 0;
     virtual string toString() { return "BaseAST"; };
+
+    virtual void insert(string id, int value) {};
+    virtual bool find(string id) {};
+    virtual int request(string id) {};
 };
 
 
@@ -197,6 +207,8 @@ class StmtAST : public BaseAST {
 
 class ExpAST : public BaseAST {
   public:
+    int value = 0;
+
     unique_ptr<BaseAST> exp;
     void Dump() const override {
       cout << INDENT() << "ExpAST {\n";
@@ -232,6 +244,7 @@ class PrimaryExpAST : public BaseAST {
 class UnaryExpAST : public BaseAST {
   public:
     string ident = "";
+    string op = "";
     unique_ptr<BaseAST> exp_or_op_or_params_1;
     unique_ptr<BaseAST> exp_or_op_2;
     void Dump() const override {
@@ -244,7 +257,7 @@ class UnaryExpAST : public BaseAST {
       cout << INDENT() << "}\n";
     }  
     IrRet toIr(string filename) const override {
-      if (exp_or_op_or_params_1->toString() == "!") {
+      if (op == "!") {
         string op1 = reg2str(exp_or_op_2->toIr(filename));
         ir::IR* unaryexp_ir = new  ir::IR(
           ir::OpCode::EQ, 
@@ -253,7 +266,7 @@ class UnaryExpAST : public BaseAST {
           ir::OpName(to_string(0))
         );
         unaryexp_ir->print(filename);
-      } else if (exp_or_op_or_params_1->toString() == "-") {
+      } else if (op == "-") {
         string op2 = reg2str(exp_or_op_2->toIr(filename));
         ir::IR* unaryexp_ir = new  ir::IR(
           ir::OpCode::SUB, 
@@ -272,20 +285,19 @@ class UnaryExpAST : public BaseAST {
 
 class AddExpAST : public BaseAST {
   public:
+    string op = "";
     unique_ptr<BaseAST> exp_1;
-    unique_ptr<BaseAST> op_2;
     unique_ptr<BaseAST> exp_3;
     void Dump() const override {
       cout << INDENT() << "AddExpAST {\n";
       INDENTATION++;
       exp_1->Dump();
-      op_2->Dump();
       exp_3->Dump();
       INDENTATION--;
       cout << INDENT() << "}\n";
     }   
     IrRet toIr(string filename) const override {
-      if (op_2->toString() == "+") {
+      if (op == "+") {
         string op1 = reg2str(exp_1->toIr(filename)), op2 = reg2str(exp_3->toIr(filename));
         ir::IR* addexp_ir = new  ir::IR(
           ir::OpCode::ADD, 
@@ -295,7 +307,7 @@ class AddExpAST : public BaseAST {
         );
         addexp_ir->print(filename);
         return IrRet(IrRet::tag::Var, AST_REG_COUNT++);;
-      } else if (op_2->toString() == "-") {
+      } else if (op == "-") {
         string op1 = reg2str(exp_1->toIr(filename)), op2 = reg2str(exp_3->toIr(filename));
         ir::IR* addexp_ir = new  ir::IR(
           ir::OpCode::SUB, 
@@ -314,20 +326,21 @@ class AddExpAST : public BaseAST {
 
 class MulExpAST : public BaseAST {
   public:
+    string op = "";
     unique_ptr<BaseAST> exp_1;
-    unique_ptr<BaseAST> op_2;
+    // unique_ptr<BaseAST> op_2;
     unique_ptr<BaseAST> exp_3;
     void Dump() const override {
       cout << INDENT() << "MulExpAST {\n";
       INDENTATION++;
       exp_1->Dump();
-      op_2->Dump();
+      // op_2->Dump();
       exp_3->Dump();
       INDENTATION--;
       cout << INDENT() << "}\n";
     }
     IrRet toIr(string filename) const override {
-      if (op_2->toString() == "*") {
+      if (op == "*") {
         string op1 = reg2str(exp_1->toIr(filename)), op2 = reg2str(exp_3->toIr(filename));
         ir::IR* mulexp_ir = new  ir::IR(
           ir::OpCode::MUL, 
@@ -337,7 +350,7 @@ class MulExpAST : public BaseAST {
         );
         mulexp_ir->print(filename);
         return IrRet(IrRet::tag::Var, AST_REG_COUNT++);;
-      } else if (op_2->toString() == "/") {
+      } else if (op == "/") {
         string op1 = reg2str(exp_1->toIr(filename)), op2 = reg2str(exp_3->toIr(filename));
         ir::IR* mulexp_ir = new  ir::IR(
           ir::OpCode::DIV, 
@@ -347,7 +360,7 @@ class MulExpAST : public BaseAST {
         );
         mulexp_ir->print(filename);
         return IrRet(IrRet::tag::Var, AST_REG_COUNT++);;
-      } else if (op_2->toString() == "%") {
+      } else if (op == "%%") {
         string op1 = reg2str(exp_1->toIr(filename)), op2 = reg2str(exp_3->toIr(filename));
         ir::IR* mulexp_ir = new  ir::IR(
           ir::OpCode::MOD, 
@@ -366,20 +379,21 @@ class MulExpAST : public BaseAST {
 
 class LOrExpAST : public BaseAST {
   public:
+    string op = "";
     unique_ptr<BaseAST> exp_1;
-    unique_ptr<BaseAST> op_2;
+    // unique_ptr<BaseAST> op_2;
     unique_ptr<BaseAST> exp_3;
     void Dump() const override {
       cout << INDENT() << "LOrExpAST {\n";
       INDENTATION++;
       exp_1->Dump();
-      op_2->Dump();
+      // op_2->Dump();
       exp_3->Dump();
       INDENTATION--;
       cout << INDENT() << "}\n";
     }
     IrRet toIr(string filename) const override {
-      if (op_2->toString() == "||") {
+      if (op == "||") {
         // 拼
         string op1 = reg2str(exp_1->toIr(filename)), op2 = reg2str(exp_3->toIr(filename));
 
@@ -418,20 +432,21 @@ class LOrExpAST : public BaseAST {
 
 class RelExpAST : public BaseAST {
   public:
+    string op = "";
     unique_ptr<BaseAST> exp_1;
-    unique_ptr<BaseAST> op_2;
+    // unique_ptr<BaseAST> op_2;
     unique_ptr<BaseAST> exp_3;
     void Dump() const override {
       cout << INDENT() << "RelExpAST {\n";
       INDENTATION++;
       exp_1->Dump();
-      op_2->Dump();
+      // op_2->Dump();
       exp_3->Dump();
       INDENTATION--;
       cout << INDENT() << "}\n";
     }
     IrRet toIr(string filename) const override {
-      if (op_2->toString() == "<") {
+      if (op == "<") {
         string op1 = reg2str(exp_1->toIr(filename)), op2 = reg2str(exp_3->toIr(filename));
         ir::IR* relexp_ir = new  ir::IR(
           ir::OpCode::LT, 
@@ -441,7 +456,7 @@ class RelExpAST : public BaseAST {
         );
         relexp_ir->print(filename);
         return IrRet(IrRet::tag::Var, AST_REG_COUNT++);;
-      } else if (op_2->toString() == ">") {
+      } else if (op == ">") {
         string op1 = reg2str(exp_1->toIr(filename)), op2 = reg2str(exp_3->toIr(filename));
         ir::IR* relexp_ir = new  ir::IR(
           ir::OpCode::GT, 
@@ -451,7 +466,7 @@ class RelExpAST : public BaseAST {
         );
         relexp_ir->print(filename);
         return IrRet(IrRet::tag::Var, AST_REG_COUNT++);;
-      } else if (op_2->toString() == "<=") {
+      } else if (op == "<=") {
         string op1 = reg2str(exp_1->toIr(filename)), op2 = reg2str(exp_3->toIr(filename));
         ir::IR* relexp_ir = new  ir::IR(
           ir::OpCode::LE, 
@@ -461,7 +476,7 @@ class RelExpAST : public BaseAST {
         );
         relexp_ir->print(filename);
         return IrRet(IrRet::tag::Var, AST_REG_COUNT++);;
-      } else if (op_2->toString() == ">=") {
+      } else if (op == ">=") {
         string op1 = reg2str(exp_1->toIr(filename)), op2 = reg2str(exp_3->toIr(filename));
         ir::IR* relexp_ir = new  ir::IR(
           ir::OpCode::GE, 
@@ -480,20 +495,21 @@ class RelExpAST : public BaseAST {
 
 class EqExpAST : public BaseAST {
   public:
+    string op = "";
     unique_ptr<BaseAST> exp_1;
-    unique_ptr<BaseAST> op_2;
+    // unique_ptr<BaseAST> op_2;
     unique_ptr<BaseAST> exp_3;
     void Dump() const override {
       cout << INDENT() << "EqExpAST {\n";
       INDENTATION++;
       exp_1->Dump();
-      op_2->Dump();
+      // op_2->Dump();
       exp_3->Dump();
       INDENTATION--;
       cout << INDENT() << "}\n";
     }
     IrRet toIr(string filename) const override {
-      if (op_2->toString() == "==") {
+      if (op == "==") {
         string op1 = reg2str(exp_1->toIr(filename)), op2 = reg2str(exp_3->toIr(filename));
         ir::IR* eqexp_ir = new  ir::IR(
           ir::OpCode::EQ, 
@@ -503,7 +519,7 @@ class EqExpAST : public BaseAST {
         );
         eqexp_ir->print(filename);
         return IrRet(IrRet::tag::Var, AST_REG_COUNT++);;
-      } else if (op_2->toString() == "!=") {
+      } else if (op == "!=") {
         string op1 = reg2str(exp_1->toIr(filename)), op2 = reg2str(exp_3->toIr(filename));
         ir::IR* eqexp_ir = new  ir::IR(
           ir::OpCode::NE, 
@@ -522,20 +538,21 @@ class EqExpAST : public BaseAST {
 
 class LAndExpAST : public BaseAST {
   public:
+    string op = "";
     unique_ptr<BaseAST> exp_1;
-    unique_ptr<BaseAST> op_2;
+    // unique_ptr<BaseAST> op_2;
     unique_ptr<BaseAST> exp_3;
     void Dump() const override {
       cout << INDENT() << "LAndExpAST {\n";
       INDENTATION++;
       exp_1->Dump();
-      op_2->Dump();
+      // op_2->Dump();
       exp_3->Dump();
       INDENTATION--;
       cout << INDENT() << "}\n";
     }
     IrRet toIr(string filename) const override {
-      if (op_2->toString() == "&&") {
+      if (op == "&&") {
         // 拼
         string op1 = reg2str(exp_1->toIr(filename)), op2 = reg2str(exp_3->toIr(filename));
 
@@ -574,107 +591,100 @@ class LAndExpAST : public BaseAST {
 
 class NumberAST : public BaseAST {
   public:
+    int value = 0;
     Int int_const;
     void Dump() const override {
       cout << INDENT() << "NumberAST: " << to_string(int_const) << "\n";
     }  
     IrRet toIr(string filename) const override {
-      // ir::IR* number_ir = new  ir::IR(
-      //   ir::OpCode::ADD, 
-      //   ir::OpName(reg2str(AST_REG_COUNT)), 
-      //   ir::OpName(to_string(int_const)), 
-      //   ir::OpName(to_string(0))
-      // );
-      // number_ir->print(filename);
-      // return IrRet(IrRet::tag::Var, AST_REG_COUNT++);;
       return IrRet(IrRet::tag::Imm, int_const);
     }
     string toString() override { return to_string(int_const); }
 };
 
-class UnaryOpAST : public BaseAST {
-  public:
-    string op;
-    void Dump() const override {
-      cout << INDENT() << "UnaryOpAST: " << op << "\n";
-    }  
-    IrRet toIr(string filename) const override {
-      return IrRet(IrRet::tag::None, -1);
-    }
-    string toString() override { return op; }
-};
+// class UnaryOpAST : public BaseAST {
+//   public:
+//     string op;
+//     void Dump() const override {
+//       cout << INDENT() << "UnaryOpAST: " << op << "\n";
+//     }  
+//     IrRet toIr(string filename) const override {
+//       return IrRet(IrRet::tag::None, -1);
+//     }
+//     string toString() override { return op; }
+// };
 
-class AddOpAST : public BaseAST {
-  public:
-    string op;
-    void Dump() const override {
-      cout << INDENT() << "AddOpAST: " << op << "\n";
-    }  
-    IrRet toIr(string filename) const override {
-      return IrRet(IrRet::tag::None, -1);
-    }
-    string toString() override { return op; }
-};
+// class AddOpAST : public BaseAST {
+//   public:
+//     string op;
+//     void Dump() const override {
+//       cout << INDENT() << "AddOpAST: " << op << "\n";
+//     }  
+//     IrRet toIr(string filename) const override {
+//       return IrRet(IrRet::tag::None, -1);
+//     }
+//     string toString() override { return op; }
+// };
 
-class MulOpAST : public BaseAST {
-  public:
-    string op;
-    void Dump() const override {
-      cout << INDENT() << "MulOpAST: " << op << "\n";
-    } 
-    IrRet toIr(string filename) const override {
-      return IrRet(IrRet::tag::None, -1);
-    } 
-    string toString() override { return op; }
-};
+// class MulOpAST : public BaseAST {
+//   public:
+//     string op;
+//     void Dump() const override {
+//       cout << INDENT() << "MulOpAST: " << op << "\n";
+//     } 
+//     IrRet toIr(string filename) const override {
+//       return IrRet(IrRet::tag::None, -1);
+//     } 
+//     string toString() override { return op; }
+// };
 
-class RelOpAST : public BaseAST {
-  public:
-    string op;
-    void Dump() const override {
-      cout << INDENT() << "RelOpAST: " << op << "\n";
-    }  
-    IrRet toIr(string filename) const override {
-      return IrRet(IrRet::tag::None, -1);
-    }
-    string toString() override { return op; }
-};
+// class RelOpAST : public BaseAST {
+//   public:
+//     string op;
+//     void Dump() const override {
+//       cout << INDENT() << "RelOpAST: " << op << "\n";
+//     }  
+//     IrRet toIr(string filename) const override {
+//       return IrRet(IrRet::tag::None, -1);
+//     }
+//     string toString() override { return op; }
+// };
 
-class EqOpAST : public BaseAST {
-  public:
-    string op;
-    void Dump() const override {
-      cout << INDENT() << "EqOpAST: " << op << "\n";
-    } 
-    IrRet toIr(string filename) const override {
-      return IrRet(IrRet::tag::None, -1);
-    } 
-    string toString() override { return op; }
-};
+// class EqOpAST : public BaseAST {
+//   public:
+//     string op;
+//     void Dump() const override {
+//       cout << INDENT() << "EqOpAST: " << op << "\n";
+//     } 
+//     IrRet toIr(string filename) const override {
+//       return IrRet(IrRet::tag::None, -1);
+//     } 
+//     string toString() override { return op; }
+// };
 
-class LAndOpAST : public BaseAST {
-  public:
-    string op;
-    void Dump() const override {
-      cout << INDENT() << "LAndOpAST: " << op << "\n";
-    } 
-    IrRet toIr(string filename) const override {
-      return IrRet(IrRet::tag::None, -1);
-    } 
-    string toString() override { return op; }
-};
+// class LAndOpAST : public BaseAST {
+//   public:
+//     string op;
+//     void Dump() const override {
+//       cout << INDENT() << "LAndOpAST: " << op << "\n";
+//     } 
+//     IrRet toIr(string filename) const override {
+//       return IrRet(IrRet::tag::None, -1);
+//     } 
+//     string toString() override { return op; }
+// };
 
-class LOrOpAST : public BaseAST {
-  public:
-    string op;
-    void Dump() const override {
-      cout << INDENT() << "LOrOpAST: " << op << "\n";
-    }  
-    IrRet toIr(string filename) const override {
-      return IrRet(IrRet::tag::None, -1);
-    }
-    string toString() override { return op; }
-};
+// class LOrOpAST : public BaseAST {
+//   public:
+//     string op;
+//     void Dump() const override {
+//       cout << INDENT() << "LOrOpAST: " << op << "\n";
+//     }  
+//     IrRet toIr(string filename) const override {
+//       return IrRet(IrRet::tag::None, -1);
+//     }
+//     string toString() override { return op; }
+// };
 
 class NullAST : public BaseAST {
   public:
@@ -701,6 +711,9 @@ class DeclAST : public BaseAST {
 };
 
 class ConstDeclAST : public BaseAST {
+  private:
+    unordered_map<string, int>var_list;
+    unordered_map<string, string>type_list; // id, (type)
   public:
     string keyword;
     unique_ptr<BaseAST> b_type;
@@ -716,7 +729,19 @@ class ConstDeclAST : public BaseAST {
       cout << INDENT() << "}\n";
     }
     IrRet toIr(string filename) const override {
+      // TODO
       return IrRet(IrRet::tag::None, -1);
+    }
+
+    void insert(string id, int value) {
+      var_list.insert(pair<string, int>(id, value));
+      type_list.insert(pair<string, string>(id, b_type->toString()));
+    }
+    bool find(string id) {
+      return var_list.find(id) != var_list.end();
+    }
+    int request(string id) {
+      return var_list[id];
     }
 };
 
@@ -746,6 +771,8 @@ class BTypeAST : public BaseAST {
 
 class ConstDefAST : public BaseAST {
   public:
+    int value;
+
     string ident;
     unique_ptr<BaseAST> bracket_const_exps;
     unique_ptr<BaseAST> const_init_val;
@@ -758,6 +785,7 @@ class ConstDefAST : public BaseAST {
       cout << INDENT() << "}\n";
     }
     IrRet toIr(string filename) const override {
+
       return IrRet(IrRet::tag::None, -1);
     }
 };
@@ -843,6 +871,8 @@ class LValAST : public BaseAST {
 
 class ConstExpAST : public BaseAST {
   public:
+    int value;
+
     unique_ptr<BaseAST> exp;
     void Dump() const override {
       // cout << INDENT() << "ConstExpAST {\n";

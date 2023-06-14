@@ -39,9 +39,9 @@ int main(int argc, const char *argv[]) {
   }
   assert(!ret);
 
-  ofstream ofs;
-  ofs.open(output, ios::out|ios::trunc);
-  ofs.close();
+  // ofstream ofs;
+  // ofs.open(output, ios::out|ios::trunc);
+  // ofs.close();
 
   // 输出解析得到的 AST, 其实就是个字符串
   ast->Dump();

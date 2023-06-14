@@ -46,7 +46,7 @@ using namespace std;
 
 // 非终结符的类型定义
 %type <ast_val> FuncDef FuncType Block Stmt Exp UnaryExp PrimaryExp AddExp MulExp
-LOrExp RelExp EqExp LAndExp UnaryOp AddOp MulOp RelOp EqOp LAndOp LOrOp Number Null 
+LOrExp RelExp EqExp LAndExp Number Null 
 Decl ConstDecl BType ConstDef CommaConstDefs ConstInitVal BlockItems BlockItem LVal ConstExp
 VarDecl CommaVarDefs VarDef InitVal
 FuncFParams FuncFParam CommaFuncFParams FuncRParams CommaExps
@@ -230,6 +230,7 @@ Exp
     auto ast = new ExpAST();
     ast->exp = unique_ptr<BaseAST>($1);
     $$ = ast;
+    ast->value = ast->exp->value;
     structure +="\nExp: LOrExp";
   }
   ;
@@ -259,17 +260,41 @@ UnaryExp
   : Null PrimaryExp {
     auto ast = new UnaryExpAST();
     ast->ident = "";
+    ast->op = "";
     ast->exp_or_op_or_params_1 = unique_ptr<BaseAST>($1);
     ast->exp_or_op_2 = unique_ptr<BaseAST>($2);
     $$ = ast;
+    ast->value = ast->exp_or_op_2->value;
     structure +="\nUnaryExp: Null PrimaryExp";
   }
-  | UnaryOp UnaryExp {
+  | Null '+' UnaryExp {
     auto ast = new UnaryExpAST();
     ast->ident = "";
+    ast->op = "+";
     ast->exp_or_op_or_params_1 = unique_ptr<BaseAST>($1);
-    ast->exp_or_op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_or_op_2 = unique_ptr<BaseAST>($3);
     $$ = ast;
+    ast->value = ast->exp_or_op_2->value;
+    structure +="\nUnaryExp: UnaryOp UnaryExp";
+  }
+  | Null '-' UnaryExp {
+    auto ast = new UnaryExpAST();
+    ast->ident = "";
+    ast->op = "-";
+    ast->exp_or_op_or_params_1 = unique_ptr<BaseAST>($1);
+    ast->exp_or_op_2 = unique_ptr<BaseAST>($3);
+    $$ = ast;
+    ast->value = -ast->exp_or_op_2->value;
+    structure +="\nUnaryExp: UnaryOp UnaryExp";
+  }
+  | Null '!' UnaryExp {
+    auto ast = new UnaryExpAST();
+    ast->ident = "";
+    ast->op = "!";
+    ast->exp_or_op_or_params_1 = unique_ptr<BaseAST>($1);
+    ast->exp_or_op_2 = unique_ptr<BaseAST>($3);
+    $$ = ast;
+    ast->value = !ast->exp_or_op_2->value;
     structure +="\nUnaryExp: UnaryOp UnaryExp";
   }
   // | IDENT '(' Null ')' Null {
@@ -291,115 +316,203 @@ UnaryExp
   ;
 
 AddExp
-  : Null Null MulExp {
+  : Null MulExp {
     auto ast = new AddExpAST();
     ast->exp_1 = unique_ptr<BaseAST>($1);
-    ast->op_2 = unique_ptr<BaseAST>($2);
-    ast->exp_3 = unique_ptr<BaseAST>($3);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($2);
     $$ = ast;
+    ast->value = ast->exp_3->value;
     structure +="\nAddExp: Null Null MulExp";
   }
-  | AddExp AddOp MulExp {
+  | AddExp '-' MulExp {
     auto ast = new AddExpAST();
+    ast->op = "-";
     ast->exp_1 = unique_ptr<BaseAST>($1);
-    ast->op_2 = unique_ptr<BaseAST>($2);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
     ast->exp_3 = unique_ptr<BaseAST>($3);
     $$ = ast;
+    ast->value = ast->exp_1->value - ast->exp_3->value;
+    structure +="\nAddExp: AddExp AddOp MulExp";
+  }
+  | AddExp '+' MulExp {
+    auto ast = new AddExpAST();
+    ast->op = "+";
+    ast->exp_1 = unique_ptr<BaseAST>($1);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($3);
+    $$ = ast;
+    ast->value = ast->exp_1->value + ast->exp_3->value;
     structure +="\nAddExp: AddExp AddOp MulExp";
   }
   ;
 
 MulExp
-  : Null Null UnaryExp {
+  : Null UnaryExp {
     auto ast = new MulExpAST();
     ast->exp_1 = unique_ptr<BaseAST>($1);
-    ast->op_2 = unique_ptr<BaseAST>($2);
-    ast->exp_3 = unique_ptr<BaseAST>($3);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($2);
     $$ = ast;
+    ast->value = ast->exp_3->value;
     structure +="\nMulExp: Null Null UnaryExp";
   }
-  | MulExp MulOp UnaryExp {
+  | MulExp '*' UnaryExp {
     auto ast = new MulExpAST();
+    ast->op = "*";
     ast->exp_1 = unique_ptr<BaseAST>($1);
-    ast->op_2 = unique_ptr<BaseAST>($2);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
     ast->exp_3 = unique_ptr<BaseAST>($3);
     $$ = ast;
+    ast->value = ast->exp_1->value * ast->exp_3->value;
+    structure +="\nMulExp: MulExp MulOp UnaryExp";
+  }
+  | MulExp '/' UnaryExp {
+    auto ast = new MulExpAST();
+    ast->op = "/";
+    ast->exp_1 = unique_ptr<BaseAST>($1);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($3);
+    $$ = ast;
+    ast->value = ast->exp_1->value / ast->exp_3->value;
+    structure +="\nMulExp: MulExp MulOp UnaryExp";
+  }
+  | MulExp '%' UnaryExp {
+    auto ast = new MulExpAST();
+    ast->op = "%%";
+    ast->exp_1 = unique_ptr<BaseAST>($1);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($3);
+    $$ = ast;
+    ast->value = ast->exp_1->value % ast->exp_3->value;
     structure +="\nMulExp: MulExp MulOp UnaryExp";
   }
   ;
 
 RelExp
-  : Null Null AddExp {
+  : Null AddExp {
     auto ast = new RelExpAST();
     ast->exp_1 = unique_ptr<BaseAST>($1);
-    ast->op_2 = unique_ptr<BaseAST>($2);
-    ast->exp_3 = unique_ptr<BaseAST>($3);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($2);
     $$ = ast;
+    ast->value = ast->exp_3->value;
     structure +="\nRelExp: Null Null AddExp";
   }
-  | RelExp RelOp AddExp {
+  | RelExp '<' AddExp {
     auto ast = new RelExpAST();
+    ast->op = "<";
     ast->exp_1 = unique_ptr<BaseAST>($1);
-    ast->op_2 = unique_ptr<BaseAST>($2);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
     ast->exp_3 = unique_ptr<BaseAST>($3);
     $$ = ast;
+    ast->value = ast->exp_1->value < ast->exp_3->value;
+    structure +="\nRelExp: RelExp RelOp AddExp";
+  }
+  | RelExp '>' AddExp {
+    auto ast = new RelExpAST();
+    ast->op = ">";
+    ast->exp_1 = unique_ptr<BaseAST>($1);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($3);
+    $$ = ast;
+    ast->value = ast->exp_1->value > ast->exp_3->value;
+    structure +="\nRelExp: RelExp RelOp AddExp";
+  }
+  | RelExp '<' '=' AddExp {
+    auto ast = new RelExpAST();
+    ast->op = "<=";
+    ast->exp_1 = unique_ptr<BaseAST>($1);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($4);
+    $$ = ast;
+    ast->value = ast->exp_1->value <= ast->exp_3->value;
+    structure +="\nRelExp: RelExp RelOp AddExp";
+  }
+  | RelExp '>' '=' AddExp {
+    auto ast = new RelExpAST();
+    ast->op = ">=";
+    ast->exp_1 = unique_ptr<BaseAST>($1);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($4);
+    $$ = ast;
+    ast->value = ast->exp_1->value >= ast->exp_3->value;
     structure +="\nRelExp: RelExp RelOp AddExp";
   }
   ;
 
 EqExp
-  : Null Null RelExp {
+  : Null RelExp {
     auto ast = new EqExpAST();
     ast->exp_1 = unique_ptr<BaseAST>($1);
-    ast->op_2 = unique_ptr<BaseAST>($2);
-    ast->exp_3 = unique_ptr<BaseAST>($3);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($2);
     $$ = ast;
+    ast->value = ast->exp_3->value;
     structure +="\nEqExp: Null Null RelExp";
   }
-  | EqExp EqOp RelExp {
+  | EqExp '=' '=' RelExp {
     auto ast = new EqExpAST();
+    ast->op = "==";
     ast->exp_1 = unique_ptr<BaseAST>($1);
-    ast->op_2 = unique_ptr<BaseAST>($2);
-    ast->exp_3 = unique_ptr<BaseAST>($3);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($4);
     $$ = ast;
+    ast->value = ast->exp_1->value == ast->exp_3->value;
+    structure +="\nEqExp: EqExp EqOp RelExp";
+  }
+  | EqExp '!' '=' RelExp {
+    auto ast = new EqExpAST();
+    ast->op = "!=";
+    ast->exp_1 = unique_ptr<BaseAST>($1);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($4);
+    $$ = ast;
+    ast->value = ast->exp_1->value != ast->exp_3->value;
     structure +="\nEqExp: EqExp EqOp RelExp";
   }
   ;
 
 LAndExp
-  : Null Null EqExp {
+  : Null EqExp {
     auto ast = new LAndExpAST();
     ast->exp_1 = unique_ptr<BaseAST>($1);
-    ast->op_2 = unique_ptr<BaseAST>($2);
-    ast->exp_3 = unique_ptr<BaseAST>($3);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($2);
     $$ = ast;
+    ast->value = ast->exp_3->value;
     structure +="\nLAndExp: Null Null EqExp";
   }
-  | LAndExp LAndOp EqExp {
+  | LAndExp '&' '&' EqExp {
     auto ast = new LAndExpAST();
+    ast->op = "&&";
     ast->exp_1 = unique_ptr<BaseAST>($1);
-    ast->op_2 = unique_ptr<BaseAST>($2);
-    ast->exp_3 = unique_ptr<BaseAST>($3);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($4);
     $$ = ast;
+    ast->value = ast->exp_1->value && ast->exp_3->value;
     structure +="\nLAndExp: LAndExp LAndOp EqExp";
   }
   ;
 
 LOrExp
-  : Null Null LAndExp {
+  : Null LAndExp {
     auto ast = new LOrExpAST();
     ast->exp_1 = unique_ptr<BaseAST>($1);
-    ast->op_2 = unique_ptr<BaseAST>($2);
-    ast->exp_3 = unique_ptr<BaseAST>($3);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($2);
     $$ = ast;
+    ast->value = ast->exp_3->value;
     structure +="\nLOrExp: Null Null LAndExp";
   }
-  | LOrExp LOrOp LAndExp {
+  | LOrExp '|' '|' LAndExp {
     auto ast = new LOrExpAST();
+    ast->op = "||";
     ast->exp_1 = unique_ptr<BaseAST>($1);
-    ast->op_2 = unique_ptr<BaseAST>($2);
-    ast->exp_3 = unique_ptr<BaseAST>($3);
+    // ast->op_2 = unique_ptr<BaseAST>($2);
+    ast->exp_3 = unique_ptr<BaseAST>($4);
     $$ = ast;
+    ast->value = ast->exp_1->value || ast->exp_3->value;
     structure +="\nLOrExp: LOrExp LOrOp LAndExp";
   }
   ;
@@ -409,126 +522,127 @@ Number
     auto ast = new NumberAST();
     ast->int_const = ($1);
     $$ = ast;
+    ast->value = ast->int_const;
     structure +="\nNumber";
   }
   ;
 
-UnaryOp
-  : '+' {
-    auto ast = new UnaryOpAST();
-    ast->op = '+';
-    $$ = ast;
-    structure +="\nUnaryOp: +";
-  }
-  | '-' {
-    auto ast = new UnaryOpAST();
-    ast->op = '-';
-    $$ = ast;
-    structure +="\nUnaryOp: -";
-  }
-  | '!' {
-    auto ast = new UnaryOpAST();
-    ast->op = '!';
-    $$ = ast;
-    structure +="\nUnaryOp: !";
-  }
-  ;
+// UnaryOp
+//   : '+' {
+//     auto ast = new UnaryOpAST();
+//     ast->op = '+';
+//     $$ = ast;
+//     structure +="\nUnaryOp: +";
+//   }
+//   | '-' {
+//     auto ast = new UnaryOpAST();
+//     ast->op = '-';
+//     $$ = ast;
+//     structure +="\nUnaryOp: -";
+//   }
+//   | '!' {
+//     auto ast = new UnaryOpAST();
+//     ast->op = '!';
+//     $$ = ast;
+//     structure +="\nUnaryOp: !";
+//   }
+//   ;
 
-AddOp
-  : '+' {
-    auto ast = new AddOpAST();
-    ast->op = '+';
-    $$ = ast;
-    structure +="\nAddOp: +";
-  }
-  | '-' {
-    auto ast = new AddOpAST();
-    ast->op = '-';
-    $$ = ast;
-    structure +="\nAddOp: -";
-  }
-  ;
+// AddOp
+//   : '+' {
+//     auto ast = new AddOpAST();
+//     ast->op = '+';
+//     $$ = ast;
+//     structure +="\nAddOp: +";
+//   }
+//   | '-' {
+//     auto ast = new AddOpAST();
+//     ast->op = '-';
+//     $$ = ast;
+//     structure +="\nAddOp: -";
+//   }
+//   ;
 
-MulOp
-  : '*' {
-    auto ast = new MulOpAST();
-    ast->op = '*';
-    $$ = ast;
-    structure +="\nMulOp: *";
-  }
-  | '/' {
-    auto ast = new MulOpAST();
-    ast->op = '/';
-    $$ = ast;
-    structure +="\nMulOp: /";
-  }
-  | '%' {
-    auto ast = new MulOpAST();
-    ast->op = '%';
-    $$ = ast;
-    structure +="\nMulOp: %%";
-  }
-  ;
+// MulOp
+//   : '*' {
+//     auto ast = new MulOpAST();
+//     ast->op = '*';
+//     $$ = ast;
+//     structure +="\nMulOp: *";
+//   }
+//   | '/' {
+//     auto ast = new MulOpAST();
+//     ast->op = '/';
+//     $$ = ast;
+//     structure +="\nMulOp: /";
+//   }
+//   | '%' {
+//     auto ast = new MulOpAST();
+//     ast->op = '%';
+//     $$ = ast;
+//     structure +="\nMulOp: %%";
+//   }
+//   ;
 
-RelOp
-  : '<' {
-    auto ast = new RelOpAST();
-    ast->op = '<';
-    $$ = ast;
-    structure +="\nRelOp: <";
-  }
-  | '>' {
-    auto ast = new RelOpAST();
-    ast->op = '>';
-    $$ = ast;
-    structure +="\nRelOp: >";
-  }
-  | '<' '=' {
-    auto ast = new RelOpAST();
-    ast->op = "<=";
-    $$ = ast;
-    structure +="\nRelOp: <=";
-  }
-  | '>' '=' {
-    auto ast = new RelOpAST();
-    ast->op = ">=";
-    $$ = ast;
-    structure +="\nRelOp: >=";
-  }
-  ;
+// RelOp
+//   : '<' {
+//     auto ast = new RelOpAST();
+//     ast->op = '<';
+//     $$ = ast;
+//     structure +="\nRelOp: <";
+//   }
+//   | '>' {
+//     auto ast = new RelOpAST();
+//     ast->op = '>';
+//     $$ = ast;
+//     structure +="\nRelOp: >";
+//   }
+//   | '<' '=' {
+//     auto ast = new RelOpAST();
+//     ast->op = "<=";
+//     $$ = ast;
+//     structure +="\nRelOp: <=";
+//   }
+//   | '>' '=' {
+//     auto ast = new RelOpAST();
+//     ast->op = ">=";
+//     $$ = ast;
+//     structure +="\nRelOp: >=";
+//   }
+//   ;
 
-EqOp
-  : '=' '=' {
-    auto ast = new EqOpAST();
-    ast->op = "==";
-    $$ = ast;
-    structure +="\nEqOp: ==";
-  }
-  | '!' '=' {
-    auto ast = new EqOpAST();
-    ast->op = "!=";
-    $$ = ast;
-    structure +="\nEqOp: !=";
-  }
-  ;
+// EqOp
+//   : '=' '=' {
+//     auto ast = new EqOpAST();
+//     ast->op = "==";
+//     $$ = ast;
+//     structure +="\nEqOp: ==";
+//   }
+//   | '!' '=' {
+//     auto ast = new EqOpAST();
+//     ast->op = "!=";
+//     $$ = ast;
+//     structure +="\nEqOp: !=";
+//   }
+//   ;
 
-LAndOp
-  : '&' '&' {
-    auto ast = new LAndOpAST();
-    ast->op = "&&";
-    $$ = ast;
-    structure +="\nLAndOp: &&";
-  }
-  ;
+// LAndOp
+//   : '&' '&' {
+//     auto ast = new LAndOpAST();
+//     ast->op = "&&";
+//     $$ = ast;
+//     structure +="\nLAndOp: &&";
+//   }
+//   ;
 
-LOrOp
-  : '|' '|' {
-    auto ast = new LOrOpAST();
-    ast->op = "||";
-    $$ = ast;
-    structure +="\nLOrOp: ||";
-  }
-  ;
+// LOrOp
+//   : '|' '|' {
+//     auto ast = new LOrOpAST();
+//     ast->op = "||";
+//     $$ = ast;
+//     structure +="\nLOrOp: ||";
+//   }
+//   ;
 
 Null
   : {
@@ -736,6 +850,7 @@ ConstExp
     auto ast = new ConstExpAST();
     ast->exp = unique_ptr<BaseAST>($1);
     $$ = ast;
+    ast->value = ast->exp->value;
     structure +="\nConstExp: Exp";
   }
   ;
